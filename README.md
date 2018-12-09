@@ -17,6 +17,6 @@ INPUT_FILTER           = doxyfilter_python.py
 ## Improvements
 
 The following improvements to ``doxygen v1.8.14`` are possible:
-- Function definition may contain ``Type Hints``;
+- Function definition may contain ``Type Hints`` (may be resolved in doxygen cf. https://github.com/doxygen/doxygen/issues/6462);
 - Python ``docstrings`` are converted to the normal ``doxygen`` format;
 - Type annotations are represented in doxygen format (from ``type hints`` or ``docstring`` types);
