@@ -21,7 +21,7 @@ import re
 
 # version according PEP-0440
 # - N.NaM means alpha release M of version N.N
-__version__ = '0.1a7'
+__version__ = '0.1a8'
 
 
 def capture_def(line: str, fh: type(open)) -> dict:
@@ -57,7 +57,7 @@ def capture_def(line: str, fh: type(open)) -> dict:
     res = None
 
     # capture a function definition, even if it extends over several lines
-    rr = re.search(r'^\s*def', line)
+    rr = re.search(r'^\s*(def|class)', line)
     if rr is not None:
         while True:
             rr = re.search(r'[:]\s*$', line)
@@ -68,46 +68,56 @@ def capture_def(line: str, fh: type(open)) -> dict:
     # parse function definition (keyword 'def')
     # (STEP-1) get definition
     # re.groups:  1:indent 2:kind  3:definition
-    rr = re.search(r'^(\s*)(def)\s+(.*)\s*$', line, flags=re.DOTALL | re.MULTILINE)
+    rr = re.search(r'^(\s*)(def|class)\s+(.*)\s*$', line, flags=re.DOTALL | re.MULTILINE)
     if rr is not None:
         res = {'indent': rr.group(1),   # 1: indention for function definition and doxygen text
                'kind': rr.group(2),   # 2: kind of compound definition (here always 'def')
                'name': None, 'params': [], 'types': {'': ''}}
         rest = rr.group(3)  # 3: function definition
-        # (STEP-2) split func-with-params from return-hint
-        # re.groups:     1:func-with-params                2:return-hint
-        rr = re.match(r'^(\w+\s*[(]\s*.*\s*[)])\s*[-][>]\s*(.*)\s*[:].*', rest, flags=re.DOTALL | re.MULTILINE)
-        if rr is not None:
-            rest = rr.group(1)  # 1: function with parameters
-            res['types'][''] = rr.group(2)  # 2: optional return type-hint
-        # (STEP-3) split func-name and param-list
-        # re.groups:     1:func        2:params
-        rr = re.match(r'^(\w+)\s*[(]\s*(.*)\s*[)].*', rest, flags=re.DOTALL | re.MULTILINE)
+
+        # (STEP-2a) split function-name from the rest
+        # re.groups:     1:func-name 2:rest
+        rr = re.match(r'^(\w+)\b\s*(.*)', rest, flags=re.DOTALL | re.MULTILINE)
         if rr is not None:
             res['name'] = rr.group(1)  # 1: function name
-            rest = rr.group(2)  # 2: parameter-list with optional type-hints (comma separated)
-            if rest is not None and rest is not '':
-                # (STEP-4) split param list
-                params = re.split(r'\s*[,]\s*', rest, flags=re.DOTALL | re.MULTILINE)
+            rest = rr.group(2)
 
-                # (STEP-5) split param from hint
-                # .. NOTE: [''] is added to ensure two list elements if there is no type-hint
-                params2 = []    # [0]=name; [1]=type-hint; [2]=initializer
-                for pp in params:
-                    pp2 = (re.split(r'\s*[=]\s*', pp) + [''])[:2]   # separate initializer
-                    pp2 = (re.split(r'\s*[:]\s*', pp2[0]) + [''])[:2] + [pp2[1]]    # separate type-hint
-                    params2.append(pp2)
-                # assign 'params' name with optional initializer; 'types' mapping name to type
-                res['params'] = []
-                for [a, b, c] in params2:
-                    res['params'].append(a if c is '' else '{}={}'.format(a, c))
-                    res['types'][a] = b
+            # (STEP-2b) split func-params from return-hint
+            # re.groups:     1:func-params               2:return-hint
+            rr = re.match(r'^([(]\s*.*\s*[)])\s*[-][>]\s*(.*)\s*[:].*', rest, flags=re.DOTALL | re.MULTILINE)
+            if rr is not None:
+                rest = rr.group(1)  # 1: function parameters
+                res['types'][''] = rr.group(2)  # 2: optional return type-hint
+
+            # (STEP-3) extract param-list
+            # re.groups:     1:params
+            rr = re.match(r'^[(]\s*(.*)\s*[)].*', rest, flags=re.DOTALL | re.MULTILINE)
+            if rr is not None:
+                rest = rr.group(1)  # 2: parameter-list with optional type-hints (comma separated)
+                if rest is not None and rest is not '':
+                    # (STEP-4) split param list
+                    params = re.split(r'\s*[,]\s*', rest, flags=re.DOTALL | re.MULTILINE)
+
+                    # (STEP-5) split param from hint
+                    # .. NOTE: [''] is added to ensure two list elements if there is no type-hint
+                    params2 = []    # [0]=name; [1]=type-hint; [2]=initializer
+                    for pp in params:
+                        pp2 = (re.split(r'\s*[=]\s*', pp) + [''])[:2]   # separate initializer
+                        pp2 = (re.split(r'\s*[:]\s*', pp2[0]) + [''])[:2] + [pp2[1]]    # separate type-hint
+                        params2.append(pp2)
+                    # assign 'params' name with optional initializer; 'types' mapping name to type
+                    res['params'] = []
+                    for [a, b, c] in params2:
+                        res['params'].append(a if c is '' else '{}={}'.format(a, c))
+                        res['types'][a] = b
+                else:
+                    pass  # ignored: no parameters
             else:
-                pass  # ignored: no parameters
+                pass  # (End Step-3) ignored: no parentheses
         else:
-            pass  # ignored: no function-name
+            pass  # (End Step-2a) ignored: no function-name
     else:
-        pass  # ignored: no compound definition
+        pass  # (End Step-1) ignored: no compound definition
     return res
 
 
