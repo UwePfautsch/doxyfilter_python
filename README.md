@@ -19,8 +19,10 @@ INPUT_FILTER           = doxyfilter_python.py
 The following improvements to ``doxygen v1.8.14`` are possible:
 - Function definition may contain ``type hints`` 
   _(this aspect may be resolved in [doxygen issue 6462](https://github.com/doxygen/doxygen/issues/6462))_;
-- Python ``docstrings`` are converted to the normal ``doxygen format`` (cf. example 1);
-- Type annotations from ``type hints`` (cf. example 2) or from ``docstring types`` (cf. example 3) are taken over to ``doxygen format``;
+- Python ``docstrings`` are converted to the normal ``doxygen format`` (cf. example 1); 
+  This enables all formatting features provided by doxygen for definitions of functions, classes and methods; 
+- Type annotations of function definitions are transferred from ``type hints`` (see example 2) or 
+  from ``docstring types`` (see example 3) into the ``doxygen format``;
 
 ## Examples
 
@@ -39,6 +41,23 @@ def formattet_text():
       - bbb.22 = 2nd sub-item of item 'bbb'
     """
     return
+    
+class AnyClass:
+    """  a class definition
+    """
+
+    def __init__(self):
+        """ AnyClass constructor
+        """
+        pass
+
+    def method(self, a: int):
+        """ AnyClass method
+
+        :param a: an number
+        :return:
+        """
+        pass
 ````
 
 is converted to
@@ -56,6 +75,23 @@ is converted to
 #
 def formattet_text():
     return
+
+##       a class definition
+#     
+class AnyClass:
+
+    ##          AnyClass constructor
+    #         
+    def __init__(self):
+        pass
+
+    ##          AnyClass method
+    # 
+    # \param a (int) an number
+    # \return () 
+    #         
+    def method(self, a): # type-hints removed
+        pass
 ````
 
 ### Example 2
