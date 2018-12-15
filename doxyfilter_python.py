@@ -19,9 +19,9 @@ import sys
 import os
 import re
 
-# version according PEP-0386
+# version according PEP-0440
 # - N.NaM means alpha release M of version N.N
-__version__ = '0.1a6'
+__version__ = '0.1a7'
 
 
 def capture_def(line: str, fh: type(open)) -> dict:
@@ -32,16 +32,16 @@ def capture_def(line: str, fh: type(open)) -> dict:
     - only pylint conform code
     - sting context is not recognized (e.g. the character `->` or `,`, '=' or `:` may miss-interpreted)
 
-    **SUPPORTED FUNCTION STYLES (Exymples):**
+    **SUPPORTED FUNCTION STYLES (Examples):**
     - `def func ( p1 : p1hint, pn : pnhint ) -> rhint :`
     - `def func ( p1 : type(h1), pn : type(hn) ) -> type(hr) :`
 
     **PROCEDURE STEPS:**
     - (STEP-1) get definition: `def\s+(.*)\s*`
     - (STEP-2) split func-with-params from return-hint: `(.*)->(.*)\\s*[:].*`
-    -> right part is the *return-hint*
+        -> right part is the *return-hint*
     - (STEP-3) split func-name and param-list: `(\\S+)\\s*[(]\\*(.*)\\s*[)]`
-    -> left part is the *function-name*
+        -> left part is the *function-name*
     - (STEP-4) split param list: `split("\\s*[,]\\s*")`
     - (STEP-5) split param from hint: `split("\\s*[:]\\s*")`
 
@@ -51,7 +51,7 @@ def capture_def(line: str, fh: type(open)) -> dict:
     - 'indent' (str) = indentation (string of spaces) to the left of the function
     - 'kind' (str) = kind of compound; always 'def'
     - 'name' (str) = function name or ( *None* = there is no name )
-    - 'params' (list) = list of parameter name including (optional) initializers (in the right order)
+    - 'params' (list) = list of parameter names (in the right order); this include optional initializer-strings
     - 'types' (dict) = types of parameters
     """
     res = None
@@ -72,7 +72,7 @@ def capture_def(line: str, fh: type(open)) -> dict:
     if rr is not None:
         res = {'indent': rr.group(1),   # 1: indention for function definition and doxygen text
                'kind': rr.group(2),   # 2: kind of compound definition (here always 'def')
-               'name': None, 'params': None, 'types': {'': ''}}
+               'name': None, 'params': [], 'types': {'': ''}}
         rest = rr.group(3)  # 3: function definition
         # (STEP-2) split func-with-params from return-hint
         # re.groups:     1:func-with-params                2:return-hint
@@ -86,7 +86,7 @@ def capture_def(line: str, fh: type(open)) -> dict:
         if rr is not None:
             res['name'] = rr.group(1)  # 1: function name
             rest = rr.group(2)  # 2: parameter-list with optional type-hints (comma separated)
-            if rest is not None:
+            if rest is not None and rest is not '':
                 # (STEP-4) split param list
                 params = re.split(r'\s*[,]\s*', rest, flags=re.DOTALL | re.MULTILINE)
 
@@ -207,7 +207,7 @@ def perform_fh(fh: type(open)) -> None:
                 types = fstr['types']
                 if any(dstr['types'].values()) is True:
                     if any(fstr['types'].values()) is True:
-                        print("{}: WARNING: type-hints applied instead of docstring-types at '{} {}()'"
+                        print("{}: WARNING: type-hints are applied instead of docstring-types at '{} {}()'"
                               .format(fh.name, fstr['kind'], fstr['name']), file=sys.stderr)
                     else:
                         types = dstr['types']
@@ -225,14 +225,17 @@ def perform_fh(fh: type(open)) -> None:
                     else:
                         if param == '':
                             print(r'{}{} \return ({}) {}'.format(fstr['indent'], comment, types[param], text))
-                        else:
+                        elif param in types:
                             print(r'{}{} \param {} ({}) {}'.format(fstr['indent'], comment, param, types[param], text))
+                        else:
+                            print("{}: WARNING: parameter '{}' unknown at '{} {}()' is not applied"
+                                  .format(fh.name, param, fstr['kind'], fstr['name']), file=sys.stderr)
 
                 print(func_str)
                 if len(dstr['lines']) != 0:
                     by_pass = False
             else:
-                print("ERROR: unable to capture '{}'".format(line.rstrip()), file=sys.stderr)
+                print("{}: ERROR: unable to capture '{}'".format(fh.name(), line.rstrip()), file=sys.stderr)
         else:
             pass  # no function definition
         if by_pass is True:
